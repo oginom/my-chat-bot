@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm gen:config && wrangler dev",
-    "deploy": "pnpm gen:config && wrangler deploy",
+    "cf:deploy": "pnpm gen:config && wrangler deploy",
     "typecheck": "tsc --noEmit",
     "gen:config": "tsx --env-file-if-exists=.env scripts/gen-wrangler-config.ts",
     "d1:create": "CF_D1_DATABASE_ID=00000000-0000-0000-0000-000000000000 pnpm gen:config && tsx --env-file-if-exists=.env scripts/d1.ts create",

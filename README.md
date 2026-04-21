@@ -56,7 +56,7 @@ pnpm db:migrate:local
 pnpm db:migrate:remote
 
 # 初回デプロイ (この時点で Worker が作成される)
-pnpm deploy
+pnpm cf:deploy
 
 # Worker Secret として暗号鍵を投入 (← Worker が存在した後でないと失敗する)
 pnpm exec wrangler secret put ENCRYPTION_KEY
