@@ -153,3 +153,43 @@ export async function getRoomMembers(
   await kvPutJson(env, key, profiles);
   return profiles;
 }
+
+export async function getGroupMemberDisplayName(
+  env: Env,
+  botId: string,
+  groupId: string,
+  userId: string,
+  accessToken: string,
+): Promise<string | null> {
+  const key = `bot:${botId}:group:${groupId}:member:${userId}`;
+  const cached = await kvGetJson<{ displayName: string | null }>(env, key);
+  if (cached) return cached.displayName;
+
+  const info = await fetchJson<{ userId: string; displayName: string }>(
+    `https://api.line.me/v2/bot/group/${encodeURIComponent(groupId)}/member/${encodeURIComponent(userId)}`,
+    accessToken,
+  );
+  const displayName = info?.displayName ?? null;
+  await kvPutJson(env, key, { displayName });
+  return displayName;
+}
+
+export async function getRoomMemberDisplayName(
+  env: Env,
+  botId: string,
+  roomId: string,
+  userId: string,
+  accessToken: string,
+): Promise<string | null> {
+  const key = `bot:${botId}:room:${roomId}:member:${userId}`;
+  const cached = await kvGetJson<{ displayName: string | null }>(env, key);
+  if (cached) return cached.displayName;
+
+  const info = await fetchJson<{ userId: string; displayName: string }>(
+    `https://api.line.me/v2/bot/room/${encodeURIComponent(roomId)}/member/${encodeURIComponent(userId)}`,
+    accessToken,
+  );
+  const displayName = info?.displayName ?? null;
+  await kvPutJson(env, key, { displayName });
+  return displayName;
+}

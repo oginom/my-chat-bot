@@ -11,8 +11,10 @@ import { getBotInfo, replyMessage } from "./client.ts";
 import {
   getBotDisplayName,
   getDmUserProfile,
+  getGroupMemberDisplayName,
   getGroupMembers,
   getGroupSummary,
+  getRoomMemberDisplayName,
   getRoomMembers,
 } from "./profile.ts";
 import type { LineEventSource, LineMessageEvent, LineWebhookBody } from "./types.ts";
@@ -128,6 +130,23 @@ async function buildContextBlock(
   return lines.join("\n");
 }
 
+async function resolveSpeakerName(
+  env: Env,
+  botId: string,
+  accessToken: string,
+  source: LineEventSource,
+  userId: string | null,
+): Promise<string | null> {
+  if (!userId) return null;
+  if (source.type === "group") {
+    return getGroupMemberDisplayName(env, botId, source.groupId, userId, accessToken);
+  }
+  if (source.type === "room") {
+    return getRoomMemberDisplayName(env, botId, source.roomId, userId, accessToken);
+  }
+  return null;
+}
+
 async function handleTextMessage(
   env: Env,
   botId: string,
@@ -138,6 +157,21 @@ async function handleTextMessage(
   const text = event.message.text ?? "";
   const channelId = resolveChannelId(event.source);
   const userId = event.source.type === "user" ? event.source.userId : (event.source.userId ?? null);
+
+  // Record every text message (even when bot is not addressed) so the LLM
+  // sees the full group conversation when it is eventually mentioned.
+  // For group/room, prefix the content with the speaker's display name so
+  // the LLM can distinguish multiple participants.
+  const speakerName = await resolveSpeakerName(env, botId, accessToken, event.source, userId);
+  const contentForStorage = speakerName ? `${speakerName}: ${text}` : text;
+  await saveMessage(env.DB, {
+    botId,
+    platform: "line",
+    channelId,
+    role: "user",
+    userId,
+    content: contentForStorage,
+  });
 
   if (!isBotAddressed(event, botUserId)) return;
   if (text.length > LIMITS.MAX_USER_INPUT_CHARS) return;
@@ -168,15 +202,6 @@ async function handleTextMessage(
     );
     return;
   }
-
-  await saveMessage(env.DB, {
-    botId,
-    platform: "line",
-    channelId,
-    role: "user",
-    userId,
-    content: text,
-  });
 
   const clearedAt = await getChannelClearedAt(env.DB, botId, "line", channelId);
 
