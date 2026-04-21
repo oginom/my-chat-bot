@@ -7,10 +7,19 @@ import * as readline from "node:readline/promises";
 export function getMasterKey(): string {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    console.error("ENCRYPTION_KEY env var is required (base64, 32 bytes). Generate with: npm run keygen");
+    console.error("ENCRYPTION_KEY env var is required (base64, 32 bytes). Generate with: pnpm keygen");
     process.exit(1);
   }
   return key;
+}
+
+export function getProjectName(): string {
+  const name = process.env.PROJECT_NAME;
+  if (!name) {
+    console.error("PROJECT_NAME env var is required. Set it in .env (copy from .env.example).");
+    process.exit(1);
+  }
+  return name;
 }
 
 export function getTarget(argv: string[]): "local" | "remote" {
@@ -30,7 +39,7 @@ export function runWranglerSql(sql: string, target: "local" | "remote"): void {
     const flag = target === "remote" ? "--remote" : "--local";
     const result = spawnSync(
       "pnpm",
-      ["exec", "wrangler", "d1", "execute", "my-chat-bot", flag, `--file=${file}`],
+      ["exec", "wrangler", "d1", "execute", getProjectName(), flag, `--file=${file}`],
       { stdio: "inherit" },
     );
     if (result.status !== 0) {
@@ -45,7 +54,7 @@ export function runWranglerSqlJson(sql: string, target: "local" | "remote"): unk
   const flag = target === "remote" ? "--remote" : "--local";
   const result = spawnSync(
     "pnpm",
-    ["exec", "wrangler", "d1", "execute", "my-chat-bot", flag, "--json", `--command=${sql}`],
+    ["exec", "wrangler", "d1", "execute", getProjectName(), flag, "--json", `--command=${sql}`],
     { encoding: "utf-8" },
   );
   if (result.status !== 0) {
