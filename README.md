@@ -7,6 +7,7 @@ Cloudflare Workers で動く LLM チャット bot。1 つの Worker で複数 bo
 - Cloudflare Workers + Hono
 - D1: bot 設定と会話履歴
 - Durable Object: チャンネル単位のレートリミット
+- KV: LINE のプロフィール・グループ情報キャッシュ (24h TTL)
 - LLM: OpenAI / Anthropic / Gemini (bot ごとに選択)
 - ローカルツールは **mise** で管理、**pnpm** で依存管理 (バージョン固定)
 
@@ -48,6 +49,9 @@ pnpm exec wrangler login
 # D1 作成。出力される database_id を .env の CF_D1_DATABASE_ID に貼る
 pnpm d1:create
 
+# KV namespace 作成 (LINE プロフィール等の 24h キャッシュ)。id を .env の CF_KV_PROFILE_CACHE_ID に貼る
+pnpm exec wrangler kv namespace create PROFILE_CACHE
+
 # マスター暗号鍵生成。出力を .env の ENCRYPTION_KEY にも貼る
 pnpm keygen
 
@@ -77,7 +81,7 @@ pnpm exec wrangler secret put ENCRYPTION_KEY
 4. Build 設定:
    - Build command: `pnpm install --frozen-lockfile && pnpm gen:config`
    - Deploy command: `pnpm exec wrangler deploy`
-5. **Environment variables** に `PROJECT_NAME` と `CF_D1_DATABASE_ID` を追加 (ローカル `.env` と同じ値)
+5. **Environment variables** に `PROJECT_NAME`, `CF_D1_DATABASE_ID`, `CF_KV_PROFILE_CACHE_ID` を追加 (ローカル `.env` と同じ値)
 6. Save
 
 これ以降は `git push origin main` するだけでデプロイされる。マイグレーション (`pnpm db:migrate:remote`) は自動化していないので、スキーマ変更時は手元で実行する。
@@ -87,23 +91,38 @@ pnpm exec wrangler secret put ENCRYPTION_KEY
 1. [LINE Developers](https://developers.line.biz/) で Messaging API チャネルを作成
 2. チャネル基本設定から **Channel secret** を取得
 3. Messaging API 設定から **Channel access token** を発行
-4. 以下で bot を登録:
+4. 使いたい LLM プロバイダの API キーを用意 (OpenAI / Anthropic / Gemini のうち 1 つ以上。複数あれば全部登録してモデル変更だけで切り替え可能)
+5. Bot を登録:
 
    ```bash
    pnpm bot:create --remote
    ```
 
-   プロバイダ・モデル・システムプロンプト・各種 API キーを対話的に入力。最後に bot の ID と Webhook URL が表示される。
+   Bot 名、デフォルトモデル、システムプロンプト、各プロバイダの API キー (空欄スキップ可)、LINE Channel secret/access token を対話的に入力。最後に bot の ID と Webhook URL が表示される。
 
-5. LINE Developers Console の **Webhook URL** に表示された URL を設定:
+6. LINE Developers Console の **Webhook URL** に表示された URL を設定:
    `https://<your-worker>.workers.dev/webhook/line/<bot-id>`
-6. Webhook の利用を **オン**、応答メッセージを **オフ** にする
-7. グループでメンションさせる場合は `Allow bot to join group chats` を有効化
+7. Webhook の利用を **オン**、応答メッセージを **オフ** にする
+8. グループでメンションさせる場合は `Allow bot to join group chats` を有効化
+
+### モデル (プロバイダ) を切り替える
+
+Bot は複数プロバイダの API キーを保持できる。使用するモデルを変えるとプロバイダは `model` 名から自動判別される (`gpt-*`/`o1*`/`o3*`/`o4*` → openai、`claude-*` → anthropic、`gemini-*` → gemini)。
+
+```bash
+# モデル変更 (例: Claude → Gemini)
+pnpm bot:edit <bot-id> --model=gemini-2.5-flash --remote
+
+# 後からキー追加
+pnpm bot:set-key <bot-id> gemini --remote
+```
 
 ## 運用
 
-- `pnpm bot:list --remote` で一覧
-- `pnpm bot:delete --remote` で削除 (履歴も CASCADE で削除)
+- `pnpm bot:list --remote` で一覧 (登録済みプロバイダも表示)
+- `pnpm bot:edit <bot-id> --model=<model>` でモデル変更
+- `pnpm bot:set-key <bot-id> <provider>` で API キー追加/更新
+- `pnpm bot:delete --remote` で削除 (履歴・キー・プラットフォーム設定も全部削除)
 - ローカル検証は `--remote` を外すと D1 local バックエンドを使用
 
 ## 仕様
@@ -111,6 +130,7 @@ pnpm exec wrangler secret put ENCRYPTION_KEY
 - **応答条件**: DM または自分宛メンションのみ
 - **履歴**: チャンネルごとに無期限保存
 - **無限ループ対策**: レートリミット (silent drop) + 自分宛メンションのみ応答
+- **コンテキスト注入**: LLM 呼び出し時にシステムプロンプト末尾に Bot 名 / 会話形態 / グループ名 / 参加メンバー名を自動付与 (KV で 24h キャッシュ)
 - **プラットフォーム拡張**: Discord / Slack は今後対応予定
 
 ## ディレクトリ構成
@@ -123,8 +143,8 @@ src/
   crypto.ts             AES-GCM 暗号化
   rate-limit.ts         Durable Object (RateLimiter)
   types.ts              共通型
-  llm/                  OpenAI / Anthropic / Gemini
-  platforms/line/       LINE の webhook/verify/client
+  llm/                  OpenAI / Anthropic / Gemini (プロバイダ自動判別)
+  platforms/line/       LINE の webhook/verify/client/profile (KV キャッシュ)
   repository/           D1 アクセス
 migrations/             D1 スキーマ
 scripts/                bot 登録/一覧/削除 CLI

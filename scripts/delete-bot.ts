@@ -12,6 +12,7 @@ async function main() {
   const sql = [
     `DELETE FROM messages WHERE bot_id = ${sqlQuote(id)};`,
     `DELETE FROM bot_platforms WHERE bot_id = ${sqlQuote(id)};`,
+    `DELETE FROM bot_api_keys WHERE bot_id = ${sqlQuote(id)};`,
     `DELETE FROM bots WHERE id = ${sqlQuote(id)};`,
   ].join("\n");
   runWranglerSql(sql, target);

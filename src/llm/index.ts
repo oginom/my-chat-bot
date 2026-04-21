@@ -1,20 +1,23 @@
-import type { Bot, Message } from "../types.ts";
+import type { Message, Provider } from "../types.ts";
 import { openaiComplete } from "./openai.ts";
 import { anthropicComplete } from "./anthropic.ts";
 import { geminiComplete } from "./gemini.ts";
 
 export interface CompleteArgs {
-  bot: Bot;
+  provider: Provider;
+  model: string;
+  apiKey: string;
+  systemPrompt: string;
   history: Message[];
 }
 
-export async function complete({ bot, history }: CompleteArgs): Promise<string> {
-  switch (bot.provider) {
+export async function complete(args: CompleteArgs): Promise<string> {
+  switch (args.provider) {
     case "openai":
-      return openaiComplete(bot, history);
+      return openaiComplete(args);
     case "anthropic":
-      return anthropicComplete(bot, history);
+      return anthropicComplete(args);
     case "gemini":
-      return geminiComplete(bot, history);
+      return geminiComplete(args);
   }
 }

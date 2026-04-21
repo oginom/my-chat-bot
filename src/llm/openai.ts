@@ -1,21 +1,21 @@
-import type { Bot, Message } from "../types.ts";
+import type { CompleteArgs } from "./index.ts";
 
 interface OpenAIResponse {
   choices: { message: { content: string } }[];
 }
 
-export async function openaiComplete(bot: Bot, history: Message[]): Promise<string> {
+export async function openaiComplete(args: CompleteArgs): Promise<string> {
   const messages = [
-    { role: "system", content: bot.systemPrompt },
-    ...history.map((m) => ({ role: m.role, content: m.content })),
+    { role: "system", content: args.systemPrompt },
+    ...args.history.map((m) => ({ role: m.role, content: m.content })),
   ];
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${bot.apiKey}`,
+      Authorization: `Bearer ${args.apiKey}`,
     },
-    body: JSON.stringify({ model: bot.model, messages }),
+    body: JSON.stringify({ model: args.model, messages }),
   });
   if (!res.ok) {
     throw new Error(`OpenAI API error ${res.status}: ${await res.text()}`);

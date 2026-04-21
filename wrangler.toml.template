@@ -9,6 +9,10 @@ database_name = "${PROJECT_NAME}"
 database_id = "${CF_D1_DATABASE_ID}"
 migrations_dir = "migrations"
 
+[[kv_namespaces]]
+binding = "PROFILE_CACHE"
+id = "${CF_KV_PROFILE_CACHE_ID}"
+
 [[durable_objects.bindings]]
 name = "RATE_LIMITER"
 class_name = "RateLimiter"

@@ -1,20 +1,20 @@
-import type { Bot, Message } from "../types.ts";
+import type { CompleteArgs } from "./index.ts";
 
 interface GeminiResponse {
   candidates?: { content: { parts: { text?: string }[] } }[];
 }
 
-export async function geminiComplete(bot: Bot, history: Message[]): Promise<string> {
-  const contents = history.map((m) => ({
+export async function geminiComplete(args: CompleteArgs): Promise<string> {
+  const contents = args.history.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(bot.model)}:generateContent?key=${encodeURIComponent(bot.apiKey)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(args.model)}:generateContent?key=${encodeURIComponent(args.apiKey)}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: bot.systemPrompt }] },
+      systemInstruction: { parts: [{ text: args.systemPrompt }] },
       contents,
     }),
   });

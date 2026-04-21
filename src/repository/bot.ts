@@ -4,11 +4,8 @@ import type { Bot, BotPlatform, LinePlatformCredentials, Platform, Provider } fr
 interface BotRow {
   id: string;
   name: string;
-  provider: Provider;
   model: string;
   system_prompt: string;
-  api_key_ciphertext: string;
-  api_key_iv: string;
 }
 
 interface BotPlatformRow {
@@ -19,23 +16,37 @@ interface BotPlatformRow {
   bot_user_id: string | null;
 }
 
-export async function getBot(db: D1Database, botId: string, masterKey: string): Promise<Bot | null> {
+interface ApiKeyRow {
+  ciphertext: string;
+  iv: string;
+}
+
+export async function getBot(db: D1Database, botId: string): Promise<Bot | null> {
   const row = await db
-    .prepare(
-      "SELECT id, name, provider, model, system_prompt, api_key_ciphertext, api_key_iv FROM bots WHERE id = ?",
-    )
+    .prepare("SELECT id, name, model, system_prompt FROM bots WHERE id = ?")
     .bind(botId)
     .first<BotRow>();
   if (!row) return null;
-  const apiKey = await decryptString(row.api_key_ciphertext, row.api_key_iv, masterKey);
   return {
     id: row.id,
     name: row.name,
-    provider: row.provider,
     model: row.model,
     systemPrompt: row.system_prompt,
-    apiKey,
   };
+}
+
+export async function getApiKey(
+  db: D1Database,
+  botId: string,
+  provider: Provider,
+  masterKey: string,
+): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT ciphertext, iv FROM bot_api_keys WHERE bot_id = ? AND provider = ?")
+    .bind(botId, provider)
+    .first<ApiKeyRow>();
+  if (!row) return null;
+  return decryptString(row.ciphertext, row.iv, masterKey);
 }
 
 export async function getBotPlatform(

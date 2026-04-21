@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const TEMPLATE_PATH = resolve(process.cwd(), "wrangler.toml.template");
 const OUTPUT_PATH = resolve(process.cwd(), "wrangler.toml");
 
-const REQUIRED_VARS = ["PROJECT_NAME", "CF_D1_DATABASE_ID"] as const;
+const REQUIRED_VARS = ["PROJECT_NAME", "CF_D1_DATABASE_ID", "CF_KV_PROFILE_CACHE_ID"] as const;
 
 function render(template: string): string {
   return template.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => {

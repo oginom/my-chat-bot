@@ -1,21 +1,21 @@
-import type { Bot, Message } from "../types.ts";
+import type { CompleteArgs } from "./index.ts";
 
 interface AnthropicResponse {
   content: { type: string; text?: string }[];
 }
 
-export async function anthropicComplete(bot: Bot, history: Message[]): Promise<string> {
-  const messages = history.map((m) => ({ role: m.role, content: m.content }));
+export async function anthropicComplete(args: CompleteArgs): Promise<string> {
+  const messages = args.history.map((m) => ({ role: m.role, content: m.content }));
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": bot.apiKey,
+      "x-api-key": args.apiKey,
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: bot.model,
-      system: bot.systemPrompt,
+      model: args.model,
+      system: args.systemPrompt,
       messages,
       max_tokens: 2048,
     }),

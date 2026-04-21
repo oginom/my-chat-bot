@@ -5,10 +5,8 @@ export type Role = "user" | "assistant";
 export interface Bot {
   id: string;
   name: string;
-  provider: Provider;
   model: string;
   systemPrompt: string;
-  apiKey: string;
 }
 
 export interface LinePlatformCredentials {
