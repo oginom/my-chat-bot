@@ -5,6 +5,7 @@ import { complete } from "../../llm/index.ts";
 import { inferProvider } from "../../llm/provider.ts";
 import { checkRateLimit } from "../../rate-limit.ts";
 import { getApiKey, getBot, getBotPlatform, updateBotUserId } from "../../repository/bot.ts";
+import { getChannelClearedAt, markChannelCleared } from "../../repository/channel.ts";
 import { getRecentMessages, saveMessage } from "../../repository/message.ts";
 import { getBotInfo, replyMessage } from "./client.ts";
 import {
@@ -16,6 +17,8 @@ import {
 } from "./profile.ts";
 import type { LineEventSource, LineMessageEvent, LineWebhookBody } from "./types.ts";
 import { verifyLineSignature } from "./verify.ts";
+
+const CLEAR_REPLY_TEXT = "会話履歴をリセットしました。";
 
 export async function handleLineWebhook(
   c: Context<{ Bindings: Env }>,
@@ -70,6 +73,22 @@ function isBotAddressed(event: LineMessageEvent, botUserId: string): boolean {
   if (event.source.type === "user") return true;
   const mentionees = event.message.mention?.mentionees ?? [];
   return mentionees.some((m) => m.userId === botUserId);
+}
+
+function textWithoutMentions(event: LineMessageEvent): string {
+  const text = event.message.text ?? "";
+  const mentionees = event.message.mention?.mentionees ?? [];
+  if (mentionees.length === 0) return text;
+  const sorted = [...mentionees].sort((a, b) => b.index - a.index);
+  let result = text;
+  for (const m of sorted) {
+    result = result.slice(0, m.index) + result.slice(m.index + m.length);
+  }
+  return result;
+}
+
+function isClearCommand(event: LineMessageEvent): boolean {
+  return textWithoutMentions(event).trim().toLowerCase() === "clear";
 }
 
 async function buildContextBlock(
@@ -129,6 +148,12 @@ async function handleTextMessage(
     return;
   }
 
+  if (isClearCommand(event)) {
+    await markChannelCleared(env.DB, botId, "line", channelId);
+    await replyMessage(accessToken, event.replyToken, CLEAR_REPLY_TEXT);
+    return;
+  }
+
   const bot = await getBot(env.DB, botId);
   if (!bot) {
     console.error(`bot config missing for ${botId}`);
@@ -153,8 +178,10 @@ async function handleTextMessage(
     content: text,
   });
 
+  const clearedAt = await getChannelClearedAt(env.DB, botId, "line", channelId);
+
   const [history, contextBlock] = await Promise.all([
-    getRecentMessages(env.DB, botId, "line", channelId),
+    getRecentMessages(env.DB, botId, "line", channelId, clearedAt),
     buildContextBlock(env, botId, accessToken, event.source),
   ]);
 

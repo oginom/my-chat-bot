@@ -131,6 +131,7 @@ pnpm bot:set-key <bot-id> gemini --remote
 - **履歴**: チャンネルごとに無期限保存
 - **無限ループ対策**: レートリミット (silent drop) + 自分宛メンションのみ応答
 - **コンテキスト注入**: LLM 呼び出し時にシステムプロンプト末尾に Bot 名 / 会話形態 / グループ名 / 参加メンバー名を自動付与 (KV で 24h キャッシュ)
+- **`clear` コマンド**: ユーザー発言が `clear` (trim + case insensitive) と完全一致でチャンネルの会話コンテキストをリセット。グループではメンション + `clear` で発動。`messages` テーブルは削除せず、`channel_state.cleared_at` より新しい履歴のみ LLM に渡す
 - **プラットフォーム拡張**: Discord / Slack は今後対応予定
 
 ## ディレクトリ構成

@@ -33,13 +33,14 @@ export async function getRecentMessages(
   botId: string,
   platform: Platform,
   channelId: string,
+  sinceMs: number,
   limit = LIMITS.HISTORY_MESSAGES,
 ): Promise<Message[]> {
   const { results } = await db
     .prepare(
-      "SELECT role, user_id, content, created_at FROM messages WHERE bot_id = ? AND platform = ? AND channel_id = ? ORDER BY created_at DESC LIMIT ?",
+      "SELECT role, user_id, content, created_at FROM messages WHERE bot_id = ? AND platform = ? AND channel_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT ?",
     )
-    .bind(botId, platform, channelId, limit)
+    .bind(botId, platform, channelId, sinceMs, limit)
     .all<MessageRow>();
   return results
     .map((r) => ({
