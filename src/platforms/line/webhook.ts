@@ -22,6 +22,11 @@ import { verifyLineSignature } from "./verify.ts";
 
 const CLEAR_REPLY_TEXT = "会話履歴をリセットしました。";
 
+const PLATFORM_DIRECTIVES = [
+  "# LINE プラットフォームの制約",
+  "- LINE は Markdown をレンダリングしないため、Markdown 記法 (見出し、リスト記号、太字記号、コードブロックなど) は使わず、プレーンテキストで回答してください。",
+].join("\n");
+
 export async function handleLineWebhook(
   c: Context<{ Bindings: Env }>,
   botId: string,
@@ -210,7 +215,7 @@ async function handleTextMessage(
     buildContextBlock(env, botId, accessToken, event.source),
   ]);
 
-  const systemPromptWithContext = `${bot.systemPrompt}\n\n${contextBlock}`;
+  const systemPromptWithContext = `${bot.systemPrompt}\n\n${PLATFORM_DIRECTIVES}\n\n${contextBlock}`;
 
   const answer = await complete({
     provider,
