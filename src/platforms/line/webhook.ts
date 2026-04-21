@@ -25,6 +25,7 @@ const CLEAR_REPLY_TEXT = "会話履歴をリセットしました。";
 const PLATFORM_DIRECTIVES = [
   "# LINE プラットフォームの制約",
   "- LINE は Markdown をレンダリングしないため、Markdown 記法 (見出し、リスト記号、太字記号、コードブロックなど) は使わず、プレーンテキストで回答してください。",
+  "- 特に必要が無ければ、ユーザー名やグループ名を返事に入れないでください。(例: xx さん、こんにちは！... や oo グループの皆さんでいかがでしょうか、のようなメッセージは不要)",
 ].join("\n");
 
 export async function handleLineWebhook(
