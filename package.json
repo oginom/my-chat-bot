@@ -1,0 +1,35 @@
+{
+  "name": "my-chat-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "22.22.2",
+    "pnpm": "10.33.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply my-chat-bot --local",
+    "db:migrate:remote": "wrangler d1 migrations apply my-chat-bot --remote",
+    "bot:create": "tsx scripts/create-bot.ts",
+    "bot:list": "tsx scripts/list-bots.ts",
+    "bot:delete": "tsx scripts/delete-bot.ts",
+    "keygen": "tsx scripts/keygen.ts"
+  },
+  "dependencies": {
+    "hono": "4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20241218.0",
+    "@types/node": "22.19.17",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2",
+    "wrangler": "3.95.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd"]
+  }
+}

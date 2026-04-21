@@ -1,0 +1,10 @@
+const bytes = crypto.getRandomValues(new Uint8Array(32));
+let s = "";
+for (const b of bytes) s += String.fromCharCode(b);
+const b64 = Buffer.from(s, "binary").toString("base64");
+console.log(b64);
+console.log();
+console.log("Set it as a Worker secret:");
+console.log(`  pnpm exec wrangler secret put ENCRYPTION_KEY   # paste the value above`);
+console.log("And also export it locally for CLI scripts:");
+console.log(`  export ENCRYPTION_KEY='${b64}'`);
