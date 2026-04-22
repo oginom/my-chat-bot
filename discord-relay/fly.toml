@@ -1,0 +1,16 @@
+# Replace `app` with your Fly app name (e.g. my-chat-bot-discord-relay).
+# Use `fly launch --copy-config --no-deploy` to create the app with this config.
+
+app = "CHANGE_ME"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory_mb = 256
+
+# No [http_service]: this is a worker-only app that opens outbound
+# WebSockets to Discord and posts events to the Worker.
+# Keep exactly 1 machine running via: `fly scale count 1 --region nrt`.

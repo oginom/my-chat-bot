@@ -1,6 +1,6 @@
 # my-chat-bot
 
-Cloudflare Workers で動く LLM チャット bot。1 つの Worker で複数 bot をホストし、LINE に招待して使う。
+Cloudflare Workers で動く LLM チャット bot。1 つの Worker で複数 bot をホストし、LINE / Discord に招待して使う。
 
 ## アーキテクチャ
 
@@ -9,9 +9,10 @@ Cloudflare Workers で動く LLM チャット bot。1 つの Worker で複数 bo
 - Durable Object: チャンネル単位のレートリミット
 - KV: LINE のプロフィール・グループ情報キャッシュ (24h TTL)
 - LLM: OpenAI / Anthropic / Gemini (bot ごとに選択)
+- **Discord は Gateway 常駐が必須** なので Worker 単体ではホストできず、`discord-relay/` (Fly.io) が Gateway → Worker の HTTP へリレーする (詳細は `discord-relay/README.md`)
 - ローカルツールは **mise** で管理、**pnpm** で依存管理 (バージョン固定)
 
-API キー・LINE Channel 認証情報は AES-GCM で暗号化して D1 に保存。マスター鍵は Worker Secret。
+API キー・LINE / Discord 認証情報は AES-GCM で暗号化して D1 に保存。マスター鍵は Worker Secret。
 
 ## 上限値 (src/config.ts で変更可)
 
@@ -105,6 +106,36 @@ pnpm exec wrangler secret put ENCRYPTION_KEY
 7. Webhook の利用を **オン**、応答メッセージを **オフ** にする
 8. グループでメンションさせる場合は `Allow bot to join group chats` を有効化
 
+## Discord bot を追加
+
+Discord は Gateway (WebSocket) 常時接続が必須なので、Fly.io 上のリレー (`discord-relay/`) を先にデプロイしておく必要がある (初回のみ)。
+
+### 初回のみ: Fly.io リレーのセットアップ
+
+Worker 側に共有シークレットを入れる:
+
+```bash
+# 好きな値 (例: openssl rand -base64 32)
+pnpm exec wrangler secret put DISCORD_RELAY_SECRET
+```
+
+その後 `discord-relay/README.md` に従って Fly へデプロイ。`DISCORD_RELAY_SECRET` は Worker と同じ値、`WORKER_URL` はデプロイ済み Worker の URL を渡す。
+
+### bot を追加
+
+1. [Discord Developer Portal](https://discord.com/developers/applications) でアプリを作成 → **Bot** を追加 → トークンをコピー
+2. **Privileged Gateway Intents** で **MESSAGE CONTENT INTENT** を有効化 (必須)
+3. OAuth2 で `bot` スコープ + 権限 (メッセージ閲覧・送信・履歴閲覧) の招待 URL を生成し、対象サーバーに招待
+4. Bot を登録:
+
+   ```bash
+   pnpm bot:create --remote
+   ```
+
+   platforms を聞かれたら `discord` (または `line,discord`) を指定し、Bot token を入力。
+
+5. リレーが次回の refresh (最大 10 分) で新しい bot を自動で認識する。すぐ反映したい場合は `fly apps restart <relay-app-name>`
+
 ### モデル (プロバイダ) を切り替える
 
 Bot は複数プロバイダの API キーを保持できる。使用するモデルを変えるとプロバイダは `model` 名から自動判別される (`gpt-*`/`o1*`/`o3*`/`o4*` → openai、`claude-*` → anthropic、`gemini-*` → gemini)。
@@ -132,7 +163,7 @@ pnpm bot:set-key <bot-id> gemini --remote
 - **無限ループ対策**: レートリミット (silent drop) + 自分宛メンションのみ応答
 - **コンテキスト注入**: LLM 呼び出し時にシステムプロンプト末尾に Bot 名 / 会話形態 / グループ名 / 参加メンバー名を自動付与 (KV で 24h キャッシュ)
 - **`clear` コマンド**: ユーザー発言が `clear` (trim + case insensitive) と完全一致でチャンネルの会話コンテキストをリセット。グループではメンション + `clear` で発動。`messages` テーブルは削除せず、`channel_state.cleared_at` より新しい履歴のみ LLM に渡す
-- **プラットフォーム拡張**: Discord / Slack は今後対応予定
+- **プラットフォーム拡張**: Slack は今後対応予定
 
 ## ディレクトリ構成
 
@@ -146,7 +177,9 @@ src/
   types.ts              共通型
   llm/                  OpenAI / Anthropic / Gemini (プロバイダ自動判別)
   platforms/line/       LINE の webhook/verify/client/profile (KV キャッシュ)
+  platforms/discord/    Discord: リレーからの MESSAGE_CREATE を受けて LLM へ
   repository/           D1 アクセス
 migrations/             D1 スキーマ
 scripts/                bot 登録/一覧/削除 CLI
+discord-relay/          Fly.io に常駐する Discord Gateway リレー (サブプロジェクト)
 ```

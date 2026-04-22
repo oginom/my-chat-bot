@@ -21,7 +21,9 @@ Every `pnpm` script that touches wrangler first runs `pnpm gen:config` (see belo
 
 ## Architecture
 
-Single Cloudflare Worker (Hono) hosting multiple bots. Requests land at `POST /webhook/line/:botId`; bot config is looked up in D1 by `botId`.
+Single Cloudflare Worker (Hono) hosting multiple bots. Requests land at `POST /webhook/line/:botId` or `POST /webhook/discord/:botId`; bot config is looked up in D1 by `botId`.
+
+**Discord is split across two processes.** The Worker cannot hold Discord Gateway WebSocket connections, so `discord-relay/` (a separate Node process deployed to Fly.io) owns the WS side. It fetches `GET /internal/discord/bots` on startup (bearer-authenticated with `DISCORD_RELAY_SECRET`), opens one `discord.js` client per bot, and forwards every raw `MESSAGE_CREATE` packet to `POST /webhook/discord/:botId` with an HMAC signature in `X-Relay-Signature`. The Worker decrypts bot credentials from D1 and sends replies via Discord REST (`POST /channels/{id}/messages`). The relay is stateless — D1 is the single source of truth; the relay re-fetches the bot list every 10 minutes so `pnpm bot:create` alone suffices to register a new bot.
 
 **Per-request flow in `src/platforms/line/webhook.ts`:**
 1. Fetch `bot_platforms` row, decrypt LINE credentials (AES-GCM, key from `ENCRYPTION_KEY` Worker secret), verify `x-line-signature`.
@@ -35,7 +37,7 @@ Single Cloudflare Worker (Hono) hosting multiple bots. Requests land at `POST /w
 
 **System prompt assembly:** the final prompt sent to the LLM is `bot.systemPrompt + PLATFORM_DIRECTIVES + contextBlock`. `PLATFORM_DIRECTIVES` (in `webhook.ts`) tells the model "no Markdown, don't prefix replies with names" — changes to LINE reply style belong here. `contextBlock` is built from LINE profile/group/member APIs cached in KV (`PROFILE_CACHE`, 24h TTL, keys are namespaced per `botId` — see `src/platforms/line/profile.ts`).
 
-**Bindings (`src/env.ts`):** `DB` (D1), `RATE_LIMITER` (DO namespace), `PROFILE_CACHE` (KV), `ENCRYPTION_KEY` (secret). The master key encrypts both `bot_api_keys.{ciphertext,iv}` and `bot_platforms.credentials_{ciphertext,iv}` via `src/crypto.ts`. CLI scripts read `ENCRYPTION_KEY` from `.env` to write encrypted rows; the Worker reads the same value from Cloudflare Secrets.
+**Bindings (`src/env.ts`):** `DB` (D1), `RATE_LIMITER` (DO namespace), `PROFILE_CACHE` (KV), `ENCRYPTION_KEY` (secret), `DISCORD_RELAY_SECRET` (secret). The master key encrypts both `bot_api_keys.{ciphertext,iv}` and `bot_platforms.credentials_{ciphertext,iv}` via `src/crypto.ts`. CLI scripts read `ENCRYPTION_KEY` from `.env` to write encrypted rows; the Worker reads the same value from Cloudflare Secrets. `DISCORD_RELAY_SECRET` is shared with the Fly relay and is used both as the HMAC key for relay event POSTs and as the bearer token for `GET /internal/discord/bots`.
 
 ## Limits and knobs
 
