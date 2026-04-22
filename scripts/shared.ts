@@ -3,6 +3,13 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as readline from "node:readline/promises";
+import type { Platform } from "../src/types.ts";
+
+export const PLATFORMS: Platform[] = ["line", "discord"];
+
+export function isPlatform(s: string): s is Platform {
+  return (PLATFORMS as string[]).includes(s);
+}
 
 export function getMasterKey(): string {
   const key = process.env.ENCRYPTION_KEY;
@@ -71,4 +78,21 @@ export async function prompt(question: string): Promise<string> {
   } finally {
     rl.close();
   }
+}
+
+export async function promptPlatformCredentials(
+  platform: Platform,
+): Promise<Record<string, string>> {
+  if (platform === "line") {
+    console.log("\nLINE platform credentials:");
+    const channelSecret = await prompt("  Channel secret: ");
+    const channelAccessToken = await prompt("  Channel access token: ");
+    return { channelSecret, channelAccessToken };
+  }
+  if (platform === "discord") {
+    console.log("\nDiscord platform credentials:");
+    const botToken = await prompt("  Bot token: ");
+    return { botToken };
+  }
+  throw new Error(`unhandled platform: ${platform}`);
 }

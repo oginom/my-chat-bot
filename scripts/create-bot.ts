@@ -1,10 +1,17 @@
 import { encryptString } from "../src/crypto.ts";
 import { inferProvider } from "../src/llm/provider.ts";
 import type { Platform, Provider } from "../src/types.ts";
-import { getMasterKey, getTarget, prompt, runWranglerSql, sqlQuote } from "./shared.ts";
+import {
+  PLATFORMS,
+  getMasterKey,
+  getTarget,
+  prompt,
+  promptPlatformCredentials,
+  runWranglerSql,
+  sqlQuote,
+} from "./shared.ts";
 
 const PROVIDERS: Provider[] = ["openai", "anthropic", "gemini"];
-const PLATFORMS: Platform[] = ["line", "discord"];
 
 async function main() {
   const target = getTarget(process.argv);
@@ -87,23 +94,6 @@ async function main() {
     console.log(`\nDiscord: the Fly relay will pick up this bot on its next refresh (within ~10 min).`);
     console.log(`Make sure MESSAGE_CONTENT intent is enabled in the Discord Developer Portal.`);
   }
-}
-
-async function promptPlatformCredentials(
-  platform: Platform,
-): Promise<Record<string, string>> {
-  if (platform === "line") {
-    console.log("\nLINE platform credentials:");
-    const channelSecret = await prompt("  Channel secret: ");
-    const channelAccessToken = await prompt("  Channel access token: ");
-    return { channelSecret, channelAccessToken };
-  }
-  if (platform === "discord") {
-    console.log("\nDiscord platform credentials:");
-    const botToken = await prompt("  Bot token: ");
-    return { botToken };
-  }
-  throw new Error(`unhandled platform: ${platform}`);
 }
 
 main().catch((e) => {

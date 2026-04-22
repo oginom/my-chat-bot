@@ -21,6 +21,7 @@
     "bot:delete": "pnpm gen:config && tsx --env-file-if-exists=.env scripts/delete-bot.ts",
     "bot:set-key": "pnpm gen:config && tsx --env-file-if-exists=.env scripts/set-bot-key.ts",
     "bot:edit": "pnpm gen:config && tsx --env-file-if-exists=.env scripts/edit-bot.ts",
+    "bot:add-platform": "pnpm gen:config && tsx --env-file-if-exists=.env scripts/add-platform.ts",
     "keygen": "tsx scripts/keygen.ts"
   },
   "dependencies": {

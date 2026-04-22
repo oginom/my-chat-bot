@@ -128,11 +128,17 @@ pnpm exec wrangler secret put DISCORD_RELAY_SECRET
 3. OAuth2 で `bot` スコープ + 権限 (メッセージ閲覧・送信・履歴閲覧) の招待 URL を生成し、対象サーバーに招待
 4. Bot を登録:
 
-   ```bash
-   pnpm bot:create --remote
-   ```
+   - 新規 bot を作るなら:
+     ```bash
+     pnpm bot:create --remote
+     ```
+     platforms を聞かれたら `discord` (または `line,discord`) を指定し、Bot token を入力。
 
-   platforms を聞かれたら `discord` (または `line,discord`) を指定し、Bot token を入力。
+   - **既存 bot に Discord を追加** するなら:
+     ```bash
+     pnpm bot:add-platform <bot-id> discord --remote
+     ```
+     `pnpm bot:list --remote` で bot-id を確認。Bot token を入力。
 
 5. リレーが次回の refresh (最大 10 分) で新しい bot を自動で認識する。すぐ反映したい場合は `fly apps restart <relay-app-name>`
 
