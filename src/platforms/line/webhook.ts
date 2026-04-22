@@ -1,5 +1,4 @@
 import type { Context } from "hono";
-import { LIMITS } from "../../config.ts";
 import type { Env } from "../../env.ts";
 import { complete } from "../../llm/index.ts";
 import { inferProvider } from "../../llm/provider.ts";
@@ -180,7 +179,6 @@ async function handleTextMessage(
   });
 
   if (!isBotAddressed(event, botUserId)) return;
-  if (text.length > LIMITS.MAX_USER_INPUT_CHARS) return;
 
   const allowed = await checkRateLimit(env, "line", botId, channelId);
   if (!allowed) {

@@ -34,20 +34,27 @@ export async function getRecentMessages(
   platform: Platform,
   channelId: string,
   sinceMs: number,
-  limit = LIMITS.HISTORY_MESSAGES,
 ): Promise<Message[]> {
   const { results } = await db
     .prepare(
       "SELECT role, user_id, content, created_at FROM messages WHERE bot_id = ? AND platform = ? AND channel_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT ?",
     )
-    .bind(botId, platform, channelId, sinceMs, limit)
+    .bind(botId, platform, channelId, sinceMs, LIMITS.HISTORY_MESSAGES)
     .all<MessageRow>();
-  return results
-    .map((r) => ({
+
+  // Walk from newest to oldest; stop before adding a message whose
+  // content would push the cumulative character total over the cap.
+  const collected: Message[] = [];
+  let total = 0;
+  for (const r of results) {
+    if (total + r.content.length > LIMITS.MAX_HISTORY_TOTAL_CHARS) break;
+    collected.push({
       role: r.role,
       userId: r.user_id,
       content: r.content,
       createdAt: r.created_at,
-    }))
-    .reverse();
+    });
+    total += r.content.length;
+  }
+  return collected.reverse();
 }

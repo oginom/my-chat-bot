@@ -6,7 +6,7 @@
 |---|---|
 | **Cloudflare Worker (Hono)** | 全 bot の HTTP エントリ。LINE Webhook / Discord リレーからのイベント / 内部エンドポイントを捌く。LLM 呼び出しとプラットフォーム API への返信もここから |
 | **D1** | bot 設定 (名前・モデル・システムプロンプト)・暗号化された API キー・プラットフォーム認証情報・会話履歴・チャンネル単位の状態を保存 |
-| **Durable Object (`RateLimiter`)** | `(platform, botId, channelId)` ごとにレートリミットをカウント。1 チャンネル 1 分 5 件 / 1 時間 30 件 |
+| **Durable Object (`RateLimiter`)** | `(platform, botId, channelId)` ごとにレートリミットをカウント。1 チャンネル 1 分 5 件 / 1 時間 30 件 (`src/config.ts`) |
 | **KV (`PROFILE_CACHE`)** | LINE のプロフィール・グループ情報、Discord のボットロール情報をキャッシュ (24h TTL)。`bot:<botId>:...` でキー名前空間を分ける |
 | **Worker Secret** | `ENCRYPTION_KEY` (API キー等の AES-GCM マスター鍵) と `DISCORD_RELAY_SECRET` (Fly リレーとの HMAC / bearer) |
 | **LLM プロバイダ** | OpenAI / Anthropic / Gemini。bot ごとのモデル名から自動判別 |
@@ -96,7 +96,8 @@ channel_state           チャンネル単位のメタ状態 (現在は cleared_
 - **チャンネル単位で無期限保存**。TRUNCATE なし
 - LINE グループ / Discord サーバーでは **メンション無しの発言も保存**。次にメンションされた時に LLM の文脈として見える
 - 保存時、グループ / サーバーでは `"<発話者表示名>: <本文>"` の prefix を付ける (DM は prefix なし)
-- LLM に渡すのは直近 **20 件** のみ (`LIMITS.HISTORY_MESSAGES`)
+- 1 メッセージは **4000 字** で切り捨てて保存 (`LIMITS.MAX_STORED_CONTENT_CHARS`)
+- LLM に渡すのは **直近から遡って最大 200 件・累計 8000 字まで**。200 件まで引いた後に新しい側から content 長を累積し、`LIMITS.MAX_HISTORY_TOTAL_CHARS` を超える手前で打ち切る ([`src/repository/message.ts`](../src/repository/message.ts))
 
 ### コンテキスト注入
 

@@ -41,7 +41,7 @@ Single Cloudflare Worker (Hono) hosting multiple bots. Requests land at `POST /w
 
 ## Limits and knobs
 
-Tunables live in `src/config.ts` (`LIMITS`): history window (20 msgs), stored-message truncation (4000 chars), user input cap (2000 chars, over-cap is ignored), rate limits (5/min, 30/hr per channel). Change them there, not inline.
+Tunables live in `src/config.ts` (`LIMITS`): history window up to 200 messages, capped at a cumulative 8000 chars walked back from the newest (whichever hits first — see `src/repository/message.ts`); stored-message truncation at 4000 chars; rate limits 5/min & 30/hr per channel. Change them there, not inline.
 
 ## Secret bootstrap gotcha
 
