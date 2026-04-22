@@ -1,5 +1,6 @@
 import { LIMITS } from "./config.ts";
 import type { Env } from "./env.ts";
+import type { Platform } from "./types.ts";
 
 export class RateLimiter implements DurableObject {
   private state: DurableObjectState;
@@ -32,8 +33,13 @@ export class RateLimiter implements DurableObject {
   }
 }
 
-export async function checkRateLimit(env: Env, botId: string, channelId: string): Promise<boolean> {
-  const id = env.RATE_LIMITER.idFromName(`${botId}:${channelId}`);
+export async function checkRateLimit(
+  env: Env,
+  platform: Platform,
+  botId: string,
+  channelId: string,
+): Promise<boolean> {
+  const id = env.RATE_LIMITER.idFromName(`${platform}:${botId}:${channelId}`);
   const stub = env.RATE_LIMITER.get(id);
   const res = await stub.fetch("https://do/check");
   const data = (await res.json()) as { allowed: boolean };

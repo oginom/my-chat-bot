@@ -1,9 +1,10 @@
 import { encryptString } from "../src/crypto.ts";
 import { inferProvider } from "../src/llm/provider.ts";
-import type { Provider } from "../src/types.ts";
+import type { Platform, Provider } from "../src/types.ts";
 import { getMasterKey, getTarget, prompt, runWranglerSql, sqlQuote } from "./shared.ts";
 
 const PROVIDERS: Provider[] = ["openai", "anthropic", "gemini"];
+const PLATFORMS: Platform[] = ["line", "discord"];
 
 async function main() {
   const target = getTarget(process.argv);
@@ -31,17 +32,33 @@ async function main() {
     );
   }
 
-  console.log("\nLINE platform credentials:");
-  const channelSecret = await prompt("  Channel secret: ");
-  const channelAccessToken = await prompt("  Channel access token: ");
+  const platformsInput = await prompt(
+    `\nPlatforms to register (comma-separated from: ${PLATFORMS.join(", ")}): `,
+  );
+  const selectedPlatforms = platformsInput
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  for (const p of selectedPlatforms) {
+    if (!(PLATFORMS as string[]).includes(p)) {
+      throw new Error(`unknown platform: ${p}. one of: ${PLATFORMS.join(", ")}`);
+    }
+  }
+  if (selectedPlatforms.length === 0) {
+    throw new Error("at least one platform is required");
+  }
 
   const id = crypto.randomUUID();
   const now = Date.now();
 
-  const credsEnc = await encryptString(
-    JSON.stringify({ channelSecret, channelAccessToken }),
-    masterKey,
-  );
+  const platformStatements: string[] = [];
+  for (const platform of selectedPlatforms as Platform[]) {
+    const creds = await promptPlatformCredentials(platform);
+    const enc = await encryptString(JSON.stringify(creds), masterKey);
+    platformStatements.push(
+      `INSERT INTO bot_platforms (bot_id, platform, credentials_ciphertext, credentials_iv, bot_user_id, created_at, updated_at) VALUES (${sqlQuote(id)}, ${sqlQuote(platform)}, ${sqlQuote(enc.ciphertext)}, ${sqlQuote(enc.iv)}, NULL, ${now}, ${now});`,
+    );
+  }
 
   const keyStatements: string[] = [];
   for (const [provider, key] of Object.entries(keys) as [Provider, string][]) {
@@ -54,15 +71,39 @@ async function main() {
   const sql = [
     `INSERT INTO bots (id, name, model, system_prompt, created_at, updated_at) VALUES (${sqlQuote(id)}, ${sqlQuote(name)}, ${sqlQuote(model)}, ${sqlQuote(systemPrompt)}, ${now}, ${now});`,
     ...keyStatements,
-    `INSERT INTO bot_platforms (bot_id, platform, credentials_ciphertext, credentials_iv, bot_user_id, created_at, updated_at) VALUES (${sqlQuote(id)}, 'line', ${sqlQuote(credsEnc.ciphertext)}, ${sqlQuote(credsEnc.iv)}, NULL, ${now}, ${now});`,
+    ...platformStatements,
   ].join("\n");
 
   runWranglerSql(sql, target);
 
   console.log(`\nBot created. id=${id}`);
   console.log(`Registered providers: ${Object.keys(keys).join(", ")}`);
-  console.log(`Set this webhook URL in LINE Developers Console:`);
-  console.log(`  https://<your-worker>.workers.dev/webhook/line/${id}`);
+  console.log(`Registered platforms: ${selectedPlatforms.join(", ")}`);
+  if (selectedPlatforms.includes("line")) {
+    console.log(`\nLINE webhook URL:`);
+    console.log(`  https://<your-worker>.workers.dev/webhook/line/${id}`);
+  }
+  if (selectedPlatforms.includes("discord")) {
+    console.log(`\nDiscord: the Fly relay will pick up this bot on its next refresh (within ~10 min).`);
+    console.log(`Make sure MESSAGE_CONTENT intent is enabled in the Discord Developer Portal.`);
+  }
+}
+
+async function promptPlatformCredentials(
+  platform: Platform,
+): Promise<Record<string, string>> {
+  if (platform === "line") {
+    console.log("\nLINE platform credentials:");
+    const channelSecret = await prompt("  Channel secret: ");
+    const channelAccessToken = await prompt("  Channel access token: ");
+    return { channelSecret, channelAccessToken };
+  }
+  if (platform === "discord") {
+    console.log("\nDiscord platform credentials:");
+    const botToken = await prompt("  Bot token: ");
+    return { botToken };
+  }
+  throw new Error(`unhandled platform: ${platform}`);
 }
 
 main().catch((e) => {

@@ -4,7 +4,7 @@ import type { Env } from "../../env.ts";
 import { complete } from "../../llm/index.ts";
 import { inferProvider } from "../../llm/provider.ts";
 import { checkRateLimit } from "../../rate-limit.ts";
-import { getApiKey, getBot, getBotPlatform, updateBotUserId } from "../../repository/bot.ts";
+import { getApiKey, getBot, getLineBotPlatform, updateBotUserId } from "../../repository/bot.ts";
 import { getChannelClearedAt, markChannelCleared } from "../../repository/channel.ts";
 import { getRecentMessages, saveMessage } from "../../repository/message.ts";
 import { getBotInfo, replyMessage } from "./client.ts";
@@ -36,7 +36,7 @@ export async function handleLineWebhook(
   const rawBody = await c.req.text();
   const signature = c.req.header("x-line-signature") ?? null;
 
-  const platform = await getBotPlatform(env.DB, botId, "line", env.ENCRYPTION_KEY);
+  const platform = await getLineBotPlatform(env.DB, botId, env.ENCRYPTION_KEY);
   if (!platform) return c.text("bot not found", 404);
 
   const ok = await verifyLineSignature(platform.credentials.channelSecret, rawBody, signature);
@@ -182,7 +182,7 @@ async function handleTextMessage(
   if (!isBotAddressed(event, botUserId)) return;
   if (text.length > LIMITS.MAX_USER_INPUT_CHARS) return;
 
-  const allowed = await checkRateLimit(env, botId, channelId);
+  const allowed = await checkRateLimit(env, "line", botId, channelId);
   if (!allowed) {
     console.log(`rate limited: bot=${botId} channel=${channelId}`);
     return;

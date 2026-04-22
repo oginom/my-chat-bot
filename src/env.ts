@@ -3,4 +3,5 @@ export interface Env {
   RATE_LIMITER: DurableObjectNamespace;
   PROFILE_CACHE: KVNamespace;
   ENCRYPTION_KEY: string;
+  DISCORD_RELAY_SECRET: string;
 }
