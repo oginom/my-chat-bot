@@ -10,7 +10,7 @@ Node and pnpm versions are pinned via `mise.toml` (Node 22.22.2, pnpm 10.33.0). 
 - `pnpm typecheck` — `tsc --noEmit` (there is no test runner in this repo)
 - `pnpm cf:deploy` — deploy to Cloudflare (regenerates `wrangler.toml` first)
 - `pnpm db:migrate:local` / `pnpm db:migrate:remote` — apply D1 migrations from `migrations/`
-- `pnpm bot:create|list|edit|delete|set-key [--remote]` — CLI under `scripts/` to manage bots. Omitting `--remote` targets the local D1 backend
+- `pnpm bot:create|list|edit|delete|set-key|add-platform [--remote]` — CLI under `scripts/` to manage bots. Omitting `--remote` targets the local D1 backend
 - `pnpm keygen` — generate a base64 32-byte master key for `ENCRYPTION_KEY`
 
 Every `pnpm` script that touches wrangler first runs `pnpm gen:config` (see below) — never invoke `wrangler` directly without regenerating the config, or stale values will ship.
@@ -45,7 +45,19 @@ Tunables live in `src/config.ts` (`LIMITS`): history window (20 msgs), stored-me
 
 ## Secret bootstrap gotcha
 
-Order matters on first setup: `ENCRYPTION_KEY` must be set as a Worker secret *after* the first `pnpm cf:deploy`, because `wrangler secret put` requires the Worker to exist. Any webhook request between deploy and secret-put will 500. See README "初期セットアップ" for the full sequence.
+Order matters on first setup: `ENCRYPTION_KEY` must be set as a Worker secret *after* the first `pnpm cf:deploy`, because `wrangler secret put` requires the Worker to exist. Any webhook request between deploy and secret-put will 500. See [`doc/setup.md`](doc/setup.md) for the full sequence.
+
+## Documentation layout
+
+User-facing docs live in `doc/`:
+- `doc/architecture.md` — components, request flow, D1 schema, key behaviors
+- `doc/setup.md` — initial Cloudflare setup, auto-deploy wiring
+- `doc/line.md` — LINE bot setup and LINE-specific behavior
+- `doc/discord.md` — Discord bot setup including the Fly relay, role-mention handling, Fly trial gotcha
+- `doc/cli.md` — full `pnpm bot:*` / `pnpm db:*` reference
+- `doc/operations.md` — model switching, logs, D1 queries, secret rotation, extension recipes
+
+The root `README.md` is a short landing page pointing into these. When answering user questions about setup / operations / platform specifics, prefer reading the relevant `doc/*.md` first.
 
 ## User-instruction reminders
 
