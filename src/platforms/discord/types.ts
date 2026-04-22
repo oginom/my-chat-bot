@@ -25,6 +25,7 @@ export interface DiscordMessage {
   member?: DiscordMember;
   content: string;
   mentions: DiscordUser[];
+  mention_roles: string[];
   // Discord message.type 0 = DEFAULT, 19 = REPLY, etc.
   type: number;
 }

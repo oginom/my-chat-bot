@@ -7,7 +7,7 @@ import { checkRateLimit } from "../../rate-limit.ts";
 import { getApiKey, getBot, getDiscordBotPlatform, updateBotUserId } from "../../repository/bot.ts";
 import { getChannelClearedAt, markChannelCleared } from "../../repository/channel.ts";
 import { getRecentMessages, saveMessage } from "../../repository/message.ts";
-import { getSelfUser, sendChannelMessage } from "./client.ts";
+import { getGuildMemberRoles, getSelfUser, sendChannelMessage } from "./client.ts";
 import type { DiscordMessage, DiscordRelayEnvelope } from "./types.ts";
 import { verifyRelaySignature } from "./verify.ts";
 
@@ -76,7 +76,8 @@ async function processMessage(
     content: contentForStorage,
   });
 
-  if (!isBotAddressed(message, botUserId)) return;
+  const addressed = await isBotAddressed(env, botId, botToken, botUserId, message);
+  if (!addressed) return;
   if (message.content.length > LIMITS.MAX_USER_INPUT_CHARS) return;
 
   const allowed = await checkRateLimit(env, "discord", botId, channelId);
@@ -85,7 +86,7 @@ async function processMessage(
     return;
   }
 
-  if (isClearCommand(message, botUserId)) {
+  if (isClearCommand(message)) {
     await markChannelCleared(env.DB, botId, "discord", channelId);
     await sendChannelMessage(botToken, channelId, CLEAR_REPLY_TEXT, message.id);
     return;
@@ -131,21 +132,55 @@ async function processMessage(
   await sendChannelMessage(botToken, channelId, answer, message.id);
 }
 
-function isBotAddressed(message: DiscordMessage, botUserId: string): boolean {
+async function isBotAddressed(
+  env: Env,
+  botId: string,
+  botToken: string,
+  botUserId: string,
+  message: DiscordMessage,
+): Promise<boolean> {
   if (!message.guild_id) return true; // DM
-  return message.mentions.some((u) => u.id === botUserId);
+  if (message.mentions.some((u) => u.id === botUserId)) return true;
+  const mentionRoles = message.mention_roles ?? [];
+  if (mentionRoles.length === 0) return false;
+  const botRoles = await getBotRolesInGuild(
+    env,
+    botId,
+    botToken,
+    message.guild_id,
+    botUserId,
+  );
+  return mentionRoles.some((r) => botRoles.includes(r));
+}
+
+async function getBotRolesInGuild(
+  env: Env,
+  botId: string,
+  botToken: string,
+  guildId: string,
+  botUserId: string,
+): Promise<string[]> {
+  const key = `bot:${botId}:guild:${guildId}:botRoles`;
+  const cached = await env.PROFILE_CACHE.get<string[]>(key, { type: "json" });
+  if (cached) return cached;
+  const roles = await getGuildMemberRoles(botToken, guildId, botUserId);
+  await env.PROFILE_CACHE.put(key, JSON.stringify(roles), { expirationTtl: 60 * 60 * 24 });
+  return roles;
 }
 
 function resolveSpeakerName(message: DiscordMessage): string {
   return message.member?.nick || message.author.global_name || message.author.username;
 }
 
-function stripMentionsOfBot(content: string, botUserId: string): string {
-  return content.replace(new RegExp(`<@!?${botUserId}>`, "g"), "");
+// Remove every Discord mention token (`<@USER>`, `<@!USER>`, `<@&ROLE>`)
+// so command matching ("clear") works regardless of which mention form
+// the user used to address the bot.
+function stripAllMentions(content: string): string {
+  return content.replace(/<@[!&]?\d+>/g, "");
 }
 
-function isClearCommand(message: DiscordMessage, botUserId: string): boolean {
-  return stripMentionsOfBot(message.content, botUserId).trim().toLowerCase() === "clear";
+function isClearCommand(message: DiscordMessage): boolean {
+  return stripAllMentions(message.content).trim().toLowerCase() === "clear";
 }
 
 function buildContextBlock(message: DiscordMessage): string {

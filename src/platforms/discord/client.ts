@@ -15,6 +15,24 @@ export async function getSelfUser(botToken: string): Promise<DiscordSelfUser> {
   return (await res.json()) as DiscordSelfUser;
 }
 
+export async function getGuildMemberRoles(
+  botToken: string,
+  guildId: string,
+  userId: string,
+): Promise<string[]> {
+  const res = await fetch(
+    `${API}/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(userId)}`,
+    { headers: { Authorization: `Bot ${botToken}` } },
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Discord GET guild member failed ${res.status}: ${await res.text()}`,
+    );
+  }
+  const data = (await res.json()) as { roles: string[] };
+  return data.roles;
+}
+
 export async function sendChannelMessage(
   botToken: string,
   channelId: string,
