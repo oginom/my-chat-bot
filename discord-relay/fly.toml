@@ -1,16 +1,16 @@
-# Replace `app` with your Fly app name (e.g. my-chat-bot-discord-relay).
-# Use `fly launch --copy-config --no-deploy` to create the app with this config.
+# fly.toml app configuration file generated for my-chat-bot-discord-relay on 2026-04-22T17:17:40+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "CHANGE_ME"
-primary_region = "nrt"
+app = 'my-chat-bot-discord-relay'
+primary_region = 'nrt'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [[vm]]
-  size = "shared-cpu-1x"
+  size = 'shared-cpu-1x'
+  cpu_kind = 'shared'
+  cpus = 1
   memory_mb = 256
-
-# No [http_service]: this is a worker-only app that opens outbound
-# WebSockets to Discord and posts events to the Worker.
-# Keep exactly 1 machine running via: `fly scale count 1 --region nrt`.

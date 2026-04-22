@@ -2,6 +2,13 @@ import crypto from "node:crypto";
 import process from "node:process";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 
+process.on("uncaughtException", (err) => {
+  console.error("uncaughtException:", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandledRejection:", reason);
+});
+
 function required(name: string): string {
   const v = process.env[name];
   if (!v) {
@@ -28,15 +35,21 @@ interface Connection {
 const connections = new Map<string, Connection>();
 
 async function fetchBots(): Promise<BotConfig[]> {
-  const res = await fetch(`${WORKER_URL}/internal/discord/bots`, {
+  const url = `${WORKER_URL}/internal/discord/bots`;
+  console.log(`fetchBots: GET ${url}`);
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${RELAY_SECRET}` },
+    signal: AbortSignal.timeout(10_000),
   });
+  console.log(`fetchBots: response ${res.status}`);
   if (!res.ok) {
     throw new Error(
       `worker /internal/discord/bots failed ${res.status}: ${await res.text()}`,
     );
   }
-  return (await res.json()) as BotConfig[];
+  const body = (await res.json()) as BotConfig[];
+  console.log(`fetchBots: received ${body.length} bot(s)`);
+  return body;
 }
 
 async function forwardMessage(botId: string, data: unknown): Promise<void> {
