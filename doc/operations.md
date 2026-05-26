@@ -35,14 +35,14 @@ pnpm bot:edit <bot-id> --model=gemini-2.5-flash --remote
 ```ts
 export const LIMITS = {
   HISTORY_MESSAGES: 200,           // LLM に渡す直近履歴の最大件数
-  MAX_STORED_CONTENT_CHARS: 4000,  // 1 メッセージの保存文字数上限 (超過分は切り捨て)
-  MAX_HISTORY_TOTAL_CHARS: 8000,   // LLM に渡す履歴の累計文字数 (直近から加算、超える手前で打ち切り)
+  MAX_STORED_CONTENT_CHARS: 10000, // 1 メッセージの保存文字数上限 (超過分は切り捨て)
+  MAX_HISTORY_TOTAL_CHARS: 50000,  // LLM に渡す履歴の累計文字数 (直近から加算、超える手前で打ち切り)
   RATE_LIMIT_PER_MINUTE: 5,        // 1 チャンネル 1 分あたりの応答上限
   RATE_LIMIT_PER_HOUR: 30,         // 1 チャンネル 1 時間あたりの応答上限
 } as const;
 ```
 
-履歴の実効的な上限は **件数 (200) と累計文字数 (8000) の先に当たる方**。件数上限 200 は D1 のクエリ `LIMIT` で効き、累計上限はアプリ側で直近から加算しながら判定する ([`src/repository/message.ts`](../src/repository/message.ts))。
+履歴の実効的な上限は **件数 (200) と累計文字数 (50000) の先に当たる方**。件数上限 200 は D1 のクエリ `LIMIT` で効き、累計上限はアプリ側で直近から加算しながら判定する ([`src/repository/message.ts`](../src/repository/message.ts))。
 
 変えたら `pnpm cf:deploy`。既存の Durable Object ストレージ (レートリミットカウンタ) はそのまま生きる。
 
