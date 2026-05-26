@@ -16,6 +16,7 @@ export async function geminiComplete(args: CompleteArgs): Promise<string> {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: args.systemPrompt }] },
       contents,
+      tools: [{ google_search: {} }],
     }),
   });
   if (!res.ok) {

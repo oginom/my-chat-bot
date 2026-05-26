@@ -18,13 +18,17 @@ export async function anthropicComplete(args: CompleteArgs): Promise<string> {
       system: args.systemPrompt,
       messages,
       max_tokens: 2048,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
     }),
   });
   if (!res.ok) {
     throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
   }
   const data = (await res.json()) as AnthropicResponse;
-  const text = data.content.find((c) => c.type === "text")?.text;
+  const text = data.content
+    .filter((c) => c.type === "text")
+    .map((c) => c.text ?? "")
+    .join("");
   if (!text) throw new Error("Anthropic returned empty content");
   return text;
 }
