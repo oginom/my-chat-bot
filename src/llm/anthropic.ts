@@ -1,7 +1,11 @@
 import type { CompleteArgs } from "./index.ts";
 
 interface AnthropicResponse {
-  content: { type: string; text?: string }[];
+  content: {
+    type: string;
+    text?: string;
+    citations?: { type: string; url?: string }[];
+  }[];
 }
 
 export async function anthropicComplete(args: CompleteArgs): Promise<string> {
@@ -25,10 +29,16 @@ export async function anthropicComplete(args: CompleteArgs): Promise<string> {
     throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
   }
   const data = (await res.json()) as AnthropicResponse;
-  const text = data.content
-    .filter((c) => c.type === "text")
-    .map((c) => c.text ?? "")
-    .join("");
+  const textBlocks = data.content.filter((c) => c.type === "text");
+  const text = textBlocks.map((c) => c.text ?? "").join("");
   if (!text) throw new Error("Anthropic returned empty content");
-  return text;
+  const urls = Array.from(
+    new Set(
+      textBlocks
+        .flatMap((c) => c.citations ?? [])
+        .filter((cit) => cit.url)
+        .map((cit) => cit.url!),
+    ),
+  );
+  return urls.length ? `${text}\n\n${urls.join("\n")}` : text;
 }

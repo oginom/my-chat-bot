@@ -3,7 +3,11 @@ import type { CompleteArgs } from "./index.ts";
 interface OpenAIResponsesAPI {
   output?: {
     type: string;
-    content?: { type: string; text?: string }[];
+    content?: {
+      type: string;
+      text?: string;
+      annotations?: { type: string; url?: string }[];
+    }[];
   }[];
 }
 
@@ -26,12 +30,19 @@ export async function openaiComplete(args: CompleteArgs): Promise<string> {
     throw new Error(`OpenAI API error ${res.status}: ${await res.text()}`);
   }
   const data = (await res.json()) as OpenAIResponsesAPI;
-  const text = data.output
-    ?.filter((o) => o.type === "message")
+  const blocks = (data.output ?? [])
+    .filter((o) => o.type === "message")
     .flatMap((o) => o.content ?? [])
-    .filter((c) => c.type === "output_text")
-    .map((c) => c.text ?? "")
-    .join("");
+    .filter((c) => c.type === "output_text");
+  const text = blocks.map((c) => c.text ?? "").join("");
   if (!text) throw new Error("OpenAI returned empty content");
-  return text;
+  const urls = Array.from(
+    new Set(
+      blocks
+        .flatMap((c) => c.annotations ?? [])
+        .filter((a) => a.type === "url_citation" && a.url)
+        .map((a) => a.url!),
+    ),
+  );
+  return urls.length ? `${text}\n\n${urls.join("\n")}` : text;
 }

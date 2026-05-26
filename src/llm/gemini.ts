@@ -1,7 +1,12 @@
 import type { CompleteArgs } from "./index.ts";
 
 interface GeminiResponse {
-  candidates?: { content: { parts: { text?: string }[] } }[];
+  candidates?: {
+    content: { parts: { text?: string }[] };
+    groundingMetadata?: {
+      groundingChunks?: { web?: { uri?: string } }[];
+    };
+  }[];
 }
 
 export async function geminiComplete(args: CompleteArgs): Promise<string> {
@@ -23,7 +28,15 @@ export async function geminiComplete(args: CompleteArgs): Promise<string> {
     throw new Error(`Gemini API error ${res.status}: ${await res.text()}`);
   }
   const data = (await res.json()) as GeminiResponse;
-  const text = data.candidates?.[0]?.content.parts.map((p) => p.text ?? "").join("");
+  const candidate = data.candidates?.[0];
+  const text = candidate?.content.parts.map((p) => p.text ?? "").join("");
   if (!text) throw new Error("Gemini returned empty content");
-  return text;
+  const urls = Array.from(
+    new Set(
+      (candidate?.groundingMetadata?.groundingChunks ?? [])
+        .map((ch) => ch.web?.uri)
+        .filter((u): u is string => !!u),
+    ),
+  );
+  return urls.length ? `${text}\n\n${urls.join("\n")}` : text;
 }
