@@ -31,12 +31,30 @@ export async function geminiComplete(args: CompleteArgs): Promise<string> {
   const candidate = data.candidates?.[0];
   const text = candidate?.content.parts.map((p) => p.text ?? "").join("");
   if (!text) throw new Error("Gemini returned empty content");
-  const urls = Array.from(
+  const redirectUrls = Array.from(
     new Set(
       (candidate?.groundingMetadata?.groundingChunks ?? [])
         .map((ch) => ch.web?.uri)
         .filter((u): u is string => !!u),
     ),
   );
-  return urls.length ? `${text}\n\n${urls.join("\n")}` : text;
+  const urls = await Promise.all(redirectUrls.map(resolveRedirect));
+  const unique = Array.from(new Set(urls));
+  return unique.length ? `${text}\n\n${unique.join("\n")}` : text;
+}
+
+async function resolveRedirect(url: string): Promise<string> {
+  let current = url;
+  for (let i = 0; i < 5; i++) {
+    const res = await fetch(current, {
+      method: "HEAD",
+      redirect: "manual",
+      signal: AbortSignal.timeout(2000),
+    });
+    if (res.status < 300 || res.status >= 400) return current;
+    const loc = res.headers.get("location");
+    if (!loc) return current;
+    current = new URL(loc, current).toString();
+  }
+  return current;
 }
